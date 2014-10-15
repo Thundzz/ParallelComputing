@@ -1,0 +1,109 @@
++----------------
+| Initialization |
+-----------------+
+The initial mesh is in the file mesh.data
+(can be open with emacs or vi...)
+
+First: the small program data2tec.f90
+- read this mesh (so you can see how the mesh file is constructed)
+- create file.plt (a file that can be open by visit a free software 
+to visualize mesh and solution on unstructured grids)
+- create the files needed by METIS and/or SCOTCH) -> formetis.dat (nodes based
+partition) -> dualformetis.dat (elements based partition)
+dualformetis.dat will be used.
+- create meshprogc.data, we will use this file for the Finite Element code.
+
+TO DO:
+gfortran data2tec.f90 -o data2tec.exe
+./data2tec.exe
+Look at: file.plt (use visit, /opt/visit/bin/visit ?), dualformetis.dat
+
+
++-----------------------------
+| METIS (dual mesh partition) |
+------------------------------+
+gunzip metis.tar.gz
+tar -xvf metis.tar
+cd metis-4.0.3
+make
+cd ../
+
+1st solution: 
+- directly use partdmesh, command:  metis-4.0.3/partdmesh dualformetis.dat 4 
+-> output: dualformetis.dat.epart.4 and dualformetis.dat.npart.4
+
+2nd solution: 
+- create first the dual graph, command:  metis-4.0.3/mesh2dual dualformetis.dat 
+-> output: dualformetis.dat.dgraph
+- and then create the partition, command: metis-4.0.3/kmetis dualformetis.dat.dgraph 4
+-> output: dualformetis.dat.dgraph.part.4
+
+NOTE: dualformetis.dat.epart.4 and dualformetis.dat.dgraph.part.4 ARE IDENTICAL.
+
+
+
+
++-----------------------------
+| SCOTCH: dual mesh partition |
+------------------------------+
+gunzip scotch.tar.gz
+tar -xvf scotch.tar
+cd scotch_5.1.11
+cd src
+make
+
+cd ../../
+
+cp dualformetis.dat dualforscotch.dat 
+
+- Fisrt we have to construct the dual graph of the mesh (for that we use METIS slightly modified)
+   (modification of the io.c routine in metis, done in metis_modified_for_scotch)
+gunzip metis_modified.tar.gz
+tar -xvf metis_modified.tar
+cd metis_modified_for_scotch
+make 
+cd ../
+
+run metis_modified_for_scotch/mesh2dual dualforscotch.dat
+-> output: dualforscotch.dat.dgraph
+cp dualforscotch.dat.dgraph dualforscotch.grf
+- modify the head of dualforscotch.grf  
+
+dualforscotch.dat.dgraph
+5768 17104
+2 199 200 
+2 202 201 
+2 201 203 
+2 203 204 
+2 204 205 
+
+dualforscotch.grf
+0
+5768 17104
+0 000
+2 199 200 
+2 202 201 
+2 201 203 
+2 203 204 
+
+- verify the consitency of this scotch .grf file, command : scotch_5.1.11/bin/gtst dualforscotch.grf
+- partition: echo cmplt 4 | scotch_5.1.11/bin/gmap dualforscotch.grf - dualforscotch.map
+-> dualforscotch.map contains the number of elements and for each element the element number followed by partition number
+		(similar to dualformetis.dat.epart.4 and dualformetis.dat.dgraph.part.4)
+
+
+
++----------------------
+| Validation: check-in |
+-----------------------+
+gfortran postprocess.f90 -o post.exe
+input: mesh.data, dlformetis.dat.epart.4 (called dual.dpart in the prog for metis)
+./post.exe
+-> output decomp.plt
+See with visit
+
+Modify postprocess.f90 to see scotch partition.
+
+Construction of the mesh for each partition
+
+
