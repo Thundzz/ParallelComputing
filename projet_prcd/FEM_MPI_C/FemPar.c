@@ -82,6 +82,22 @@ void Update(float *A)
 {
    int I, J;
    MPI_Status Status;
+   /*
+    For i=0 à ProcNO 
+    {
+      for j=0 , < C
+      {
+        Buff[j] = A[Node[neighbours[i][j]]*local];
+      }
+      if(Common[i]> 0)
+        send(Buff, Common[i],i);
+    }
+    For(i=0 à PROCNO)
+    {
+      if (Common[i]>0)
+        receive(Buf, Common[i], i)
+    }
+   */   
 
 }
 
