@@ -67,6 +67,12 @@ float InnerProduct(float *A1, float *A2, float *B1, float *B2)
 {
    int I;
    float IP = 0.0, IPTotal;
+   /* TODO, with a reduction :
+    IP =A1 B1 + sum(I, A2[I]+ B2(I) / SHARED[I]);
+         ||
+      sum(I, A1[I], B1[I])
+      reduce(IP, IP_total, MPI_sum);
+   */
    return(IPTotal);
 }
 
