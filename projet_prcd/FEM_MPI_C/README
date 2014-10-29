@@ -1,0 +1,58 @@
+(CREMI: gcc -lm -o Preprocess.exe Preprocess.c; mpicc.openmpi -lm -o fem.exe FemPar.c)
+(ICI: gcc -lm -o Preprocess.exe Preprocess.c; mpicc -lm -o fem.exe FemPar.c)
+
++--------------------------------------------------+
+| To create sub-meshes: Data00.In Data01.In etc... |
++--------------------------------------------------+
+	- first create Mesh.Data
+	- Then run ./Preprocess.exe i (i number of sub-meshes same as metis scotch partition)
+
++------------------------+
+|How to create Mesh.Data:|
++------------------------+
+
+To create Mesh.Data from a metis partition:
+	Take the meshprogc.data (given by data2tec.f90) and add at the end the informations (dual.dpart) provided by METIS:
+	cp meshprogc.dat Mesh.Data
+        cat dual.dpart >> Mesh.Data  
+
+
+To create Mesh.Data from a scotch partition:
+	gcc -lm -o fromscotch.exe fromscotch.c
+	Input: meshprogc.data (file privided by data2tec.f90) and dualforscotch.map (file provided by scotch)
+
+
++------------------------+
+|To create the Sub-mesh: |
++------------------------+
+gcc -lm -o Preprocess.exe Preprocess.c
+
+./Preprocess.exe 4 (number of partitions used in metis or scotch)
+The Input is Mesh.Data
+The Output are Data00.In, Data01.In, Data02.In and Data03.In
+
++---------+
+|E-F code |
++---------+
+
+To compile the Finite Element prog
+(CREMI) mpicc.openmpi -lm -o fem.exe FemPar.c
+(ENSEIRB-MATMECA) mpicc -lm -o fem.exe FemPar.c
+
+To run:
+mpirun.openmpi -n 4 ./fem.exe
+mpirun -n 4 ./fem.exe
+
+
+-------END------
+
+#To run the Finite element prog in // using mpi on mygale:
+#
+#
+#module add compiler/intel/stable
+#module add mpi/openmpi/1.4.3
+#module aad tools/torque/...
+#
+#
+#gcc -lm -lmpi -o fem.exe FemPar.c
+#qsub batch
