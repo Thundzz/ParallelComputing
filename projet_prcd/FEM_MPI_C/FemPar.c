@@ -39,7 +39,7 @@ Neighbour[i,j] = local number of the node on the partition boundary which is the
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "mpi.h"
+#include <mpi.h>
 
 /* A number of global data structures and variables relating to the mesh and its partition are declared
 here */
@@ -67,12 +67,17 @@ float InnerProduct(float *A1, float *A2, float *B1, float *B2)
 {
    int I;
    float IP = 0.0, IPTotal;
-   /* TODO, with a reduction :
-    IP =A1 B1 + sum(I, A2[I]+ B2(I) / SHARED[I]);
-         ||
-      sum(I, A1[I], B1[I])
-      reduce(IP, IP_total, MPI_sum);
-   */
+   for (int i = 0; i < IntNodes; ++i)
+   {
+     IP += A1[i]* B1[i];
+   }
+
+   for (int i = 0; i < IBNodes; ++i)
+   {
+     IP += A2[i]* B2[i]/Shared[i];
+   }
+
+   MPI_Allreduce(&IP, &IPTotal, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
    return(IPTotal);
 }
 
@@ -80,24 +85,26 @@ float InnerProduct(float *A1, float *A2, float *B1, float *B2)
 
 void Update(float *A)
 {
-   int I, J;
-   MPI_Status Status;
-   /*
-    For i=0 à ProcNO 
+  MPI_Status Status;
+  for (int i=0; i< PROCNO; i++ )
+  {
+    for (int j=0 ; j< Common[i]; j++)
     {
-      for j=0 , < C
-      {
-        Buff[j] = A[Node[neighbours[i][j]]*local];
-      }
-      if(Common[i]> 0)
-        send(Buff, Common[i],i);
+      Buf[j] = A[Node[Neighbours[i][j]].Local];
     }
-    For(i=0 à PROCNO)
+    if(Common[i]> 0)
+      MPI_Send(Buf, Common[i], MPI_FLOAT, i, 99, MPI_COMM_WORLD);
+  }
+  for(int i=0 ; i < PROCNO; i++)
+  {
+    if (Common[i]>0)
+      MPI_Recv(Buf, Common[i], MPI_FLOAT, i, 99, MPI_COMM_WORLD, &Status);
+    for (int j = 0; j <  Common[i]; ++j)
     {
-      if (Common[i]>0)
-        receive(Buf, Common[i], i)
+      A[Node[Neighbours[i][j]].Local] += Buf[j];
     }
-   */   
+    
+  }
 
 }
 
