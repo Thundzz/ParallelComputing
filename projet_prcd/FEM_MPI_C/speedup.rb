@@ -26,4 +26,4 @@ def gen_meshdata(n)
   system("cat dualformetis.dat.epart.#{n} >> Mesh.Data")
 end
 
-gen_datafiles(6)
+gen_datafiles(2)
