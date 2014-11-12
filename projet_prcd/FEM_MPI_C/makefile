@@ -1,2 +1,2 @@
 all:
-	mpicc -std=c99 FemPar.c 
+	mpicc -std=c99 FemPar.c -o fem.exe
