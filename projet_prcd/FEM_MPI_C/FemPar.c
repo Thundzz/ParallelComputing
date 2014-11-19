@@ -195,6 +195,9 @@ int main( int argc, char** argv)
    MPI_Init(&argc,&argv);
    MPI_Comm_rank(MPI_COMM_WORLD,&ProcID);
    MPI_Comm_size(MPI_COMM_WORLD,&ProcNo);
+
+   double debut = MPI_Wtime();
+   
    PROCNO = ProcNo;
    Common= (int*)malloc(ProcNo*sizeof(int));
    Neighbours= (int**)malloc(ProcNo*sizeof(int *));
@@ -209,7 +212,6 @@ int main( int argc, char** argv)
    if (ProcID == 0){
     timeFile = fopen("time.dat", "w+");
    }
-   double debut = MPI_Wtime();
 
    Node = (NodeType*) malloc(Nodes*sizeof(NodeType));
    for (I=0, IntNodes =0, IBNodes =0; I<Nodes; I++) {

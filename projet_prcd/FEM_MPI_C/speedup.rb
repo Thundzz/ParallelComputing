@@ -50,5 +50,17 @@ def calc_speedup(n)
   end
 end
 
+
+def print_speedup
+  File.open("metis/plot.plt", "w+") do |file|
+      file.puts("set terminal png size 800,600")
+      file.puts("set output 'metis/plot.png'")
+      file.puts("plot 'metis/speedup.dat' with linespoints")
+  end
+  system("gnuplot metis/plot.plt")
+  system("eog metis/plot.png")
+end
+
 gen_datafiles(6)
 calc_speedup(6)
+print_speedup()
