@@ -1,9 +1,10 @@
 #!/usr/bin/env ruby
 
 def gen_datafiles(max)
-  for i in 2..max
+  for i in 1..max
     system("rm Data*")
-    system("rm Sol*")
+    system("rm Sol*.plt")
+    system("rm time.dat")
     gen_meshdata(i)
     system("./preprocess.exe #{i}")
     folder  = "metis/#{i}"
@@ -13,17 +14,41 @@ def gen_datafiles(max)
     for j in 0..(i-1)
       fname = "Data0#{j}.In"
       solname = "Sol0#{j}.plt"
+      timename = "time.dat"
       system("cp " + fname + " " + folder + "/")
       system("cp " + solname + " " + folder + "/")
+      system("cp " + timename + " " + folder + "/")
     end
   end
 end
 
 def gen_meshdata(n)
-  system("./data2tec.exe")
-  system("./partdmesh dualformetis.dat #{n}")
-  system("cp meshprogc.data Mesh.Data")
-  system("cat dualformetis.dat.epart.#{n} >> Mesh.Data")
+  if(n == 1)
+    system("cat MeshFor0.Data > Mesh.Data")
+  else
+    system("./data2tec.exe")
+    system("./partdmesh dualformetis.dat #{n}")
+    system("cp meshprogc.data Mesh.Data")
+    system("cat dualformetis.dat.epart.#{n} >> Mesh.Data")
+  end
 end
 
-gen_datafiles(2)
+def calc_speedup(n)
+  time = []
+  for i in 1..n
+    File.open("metis/#{i}/time.dat") do |file|
+      file.each do |line|
+        time[i] = line
+      end
+    end
+  end
+  File.open("metis/speedup.dat", "w+") do |file|
+    for i in 1..n
+      spdUp = time[1].to_f/time[i].to_f
+      file.puts("#{i} #{spdUp}")
+    end
+  end
+end
+
+gen_datafiles(6)
+calc_speedup(6)

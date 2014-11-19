@@ -186,7 +186,7 @@ subdomain. The distributed conjugate gradient solver is then invoked. */
 
 int main( int argc, char** argv)
 {
-   FILE *InFile, *OutFile;
+   FILE *InFile, *OutFile,*timeFile;
    char FileName[40], OutName[40];
    int I, J, K, II, JJ;
    float **Ap, **Bp, **As, *Fp, *Fs, *Vp, *Vs;
@@ -205,6 +205,11 @@ int main( int argc, char** argv)
 
    InFile = fopen(FileName,"r");
    fscanf(InFile, "%d%d", &Nodes, &Elements);
+
+   if (ProcID == 0){
+    timeFile = fopen("time.dat", "w+");
+   }
+   double debut = MPI_Wtime();
 
    Node = (NodeType*) malloc(Nodes*sizeof(NodeType));
    for (I=0, IntNodes =0, IBNodes =0; I<Nodes; I++) {
@@ -341,8 +346,19 @@ int main( int argc, char** argv)
 
    for (I=0; I<Elements; I++)
        fprintf(OutFile," %d %d %d \n", Element[I].Vertex[0] +1, Element[I].Vertex[1] +1, Element[I].Vertex[2] +1);
-   fclose(OutFile);
 
+
+   double fin = MPI_Wtime();
+   double temps = fin - debut;
+   double tempsMax;
+   MPI_Reduce(&temps, &tempsMax, 1 , MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+
+   if (ProcID == 0){
+    fprintf(timeFile, "%g\n", temps);
+    fclose(timeFile);
+   }
+
+   fclose(OutFile);
    MPI_Finalize();
 
 }
