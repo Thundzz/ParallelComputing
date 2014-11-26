@@ -4,3 +4,4 @@ all:
 clean:
 	rm Data*.In Sol*.plt *.epart.* *.npart.* 
 	rm -r metis
+	rm -r scotch
