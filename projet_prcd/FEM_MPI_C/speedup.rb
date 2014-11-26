@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 def gen_datafiles(max)
+  system("mkdir metis")
   for i in 1..max
     system("rm Data*")
     system("rm Sol*.plt")
@@ -11,13 +12,39 @@ def gen_datafiles(max)
     system("rm -rf " + folder)
     system("mkdir " + folder)
     system("/usr/lib64/openmpi/bin/mpirun -n #{i} fem.exe")
+    timename = "time.dat"
+    system("mv " + timename + " " + folder + "/")
     for j in 0..(i-1)
-      fname = "Data0#{j}.In"
+      fname = "Data0#{j}.In" unless j>= 10
+      fname = "Data#{j}.In" if j>= 10
       solname = "Sol0#{j}.plt"
-      timename = "time.dat"
-      system("cp " + fname + " " + folder + "/")
-      system("cp " + solname + " " + folder + "/")
-      system("cp " + timename + " " + folder + "/")
+      system("mv " + fname + " " + folder + "/")
+      system("mv " + solname + " " + folder + "/")
+    end
+  end
+end
+
+
+def gen_datafiles_scotch(max)
+  system("mkdir scotch")
+  for i in 1..max
+    system("rm Data*")
+    system("rm Sol*.plt")
+    system("rm time.dat")
+    gen_meshdata_scotch(i)
+    system("./preprocess.exe #{i}")
+    folder  = "scotch/#{i}"
+    system("rm -rf " + folder)
+    system("mkdir " + folder)
+    system("/usr/lib64/openmpi/bin/mpirun -n #{i} fem.exe")
+    timename = "time.dat"
+    system("mv " + timename + " " + folder + "/")
+    for j in 0..(i-1)
+      fname = "Data0#{j}.In" unless j>= 10
+      fname = "Data#{j}.In" if j>= 10
+      solname = "Sol0#{j}.plt"
+      system("mv " + fname + " " + folder + "/")
+      system("mv " + solname + " " + folder + "/")
     end
   end
 end
@@ -30,6 +57,16 @@ def gen_meshdata(n)
     system("./partdmesh dualformetis.dat #{n}")
     system("cp meshprogc.data Mesh.Data")
     system("cat dualformetis.dat.epart.#{n} >> Mesh.Data")
+  end
+end
+
+def gen_meshdata_scotch(n)
+  if(n == 1)
+    system("cat MeshFor0Scotch.Data > Mesh.Data")
+  else
+    system("./data2tec.exe")
+    system("echo cmplt #{n} | ./gmap dualforscotch.grf")
+    system("./fromscotch")
   end
 end
 
@@ -68,4 +105,10 @@ def gen_compute_and_print(n)
   print_speedup()
 end
 
-gen_compute_and_print(ARGV[0].to_i)
+def gen_compute_and_print_scotch(n)
+  gen_datafiles_scotch(n)
+end
+
+gen_compute_and_print_scotch(ARGV[0].to_i)
+
+#gen_datafile_for(33)
