@@ -44,6 +44,8 @@ Neighbour[i,j] = local number of the node on the partition boundary which is the
 /* A number of global data structures and variables relating to the mesh and its partition are declared
 here */
 
+#define NB_ITER 10000
+
 typedef struct
 {
    float Pos[2];
@@ -113,7 +115,7 @@ void Update(float *A)
 int CG(float **Ap, float **As, float **Bp, float *Fp, float *Fs, float *Vp, float *Vs)
 {
    float *Rp, *Rs, *Pp, *Ps, *Qp, *Qs, GammaOld, GammaNew, Tau, Alpha, Beta, Tol=1.0e-4;
-   int I, J, K, KMax=250;
+   int I, J, K, KMax=NB_ITER;
 
    Pp = (float*) malloc(IntNodes*sizeof(float));
    Ps = (float*) malloc(IBNodes*sizeof(float));
