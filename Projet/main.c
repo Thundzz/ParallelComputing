@@ -3,6 +3,42 @@
 #include <stdlib.h>
 #include <math.h>
 
+int cdt_choisie= 1;
+
+typedef struct conditions_aux_bords{
+  double (*f)(double, double, double);
+  double (*g)(double, double, double);
+  double (*h)(double, double, double);
+} cdt_aux_bords;
+
+double f1( double posx, double posy, double t)
+{
+  double function;
+  function = sin(posx) + cos(posy);
+  return(function);
+}
+
+double f2 ( double posx, double posy, double t)
+{
+  return 2*(posy - posy*posy + posx - posx*posx);
+}
+
+double func_zero(double posx, double posy, double t)
+{
+  return 0;
+}
+
+cdt_aux_bords cdt[] = 
+{
+  {f2, func_zero, func_zero},
+  {f1, f1, f1}
+};
+
+double func_one(double posx, double posy, double t)
+{
+  return 1;
+}
+
 
 
 void nloc(int *i, int *j, int n, int Nx)
@@ -22,15 +58,8 @@ void nloc(int *i, int *j, int n, int Nx)
   return;
 }
 
-double f( double posx, double posy, double t)
-{
 
-  double function;
 
-  function = sin(posx) + cos(posy);
-
-  return(function);
-}
 
 
 
@@ -40,6 +69,10 @@ void RightHandSide(int N, int Nx, int M, double dx, double dy, double Cx, double
   double posx,posy;
 
   M = N/Nx ; /* # de lignes */
+
+  double (*f)(double, double, double) = cdt[cdt_choisie].f;
+  double (*g)(double, double, double) = cdt[cdt_choisie].g;
+  double (*h)(double, double, double) = cdt[cdt_choisie].h;
 
   for( i = 1; i<=N; i++ ){
     nloc(&j,&k,i,Nx);
@@ -54,7 +87,7 @@ void RightHandSide(int N, int Nx, int M, double dx, double dy, double Cx, double
 	nloc(&j,&k,i,Nx);
 	posx = k*dx;
 	posy = j*dy;
-	RHS[i] = RHS[i]-f(posx,0.0,0.0)*Cy;
+	RHS[i] = RHS[i]-g(posx,0.0,0.0)*Cy;
       }
 
   /* derniere ligne condition de bord du haut */
@@ -63,26 +96,26 @@ void RightHandSide(int N, int Nx, int M, double dx, double dy, double Cx, double
       nloc(&j,&k,i,Nx);
       posx = k*dx;
       posy = j*dy;
-      RHS[i] =RHS[i]-f(posx,1.0,0.0)*Cy;
+      RHS[i] =RHS[i]-g(posx,1.0,0.0)*Cy;
     }
 
   /* Bords droit et gauche */
     /*Ligne du bas*/
-  RHS[1]  = RHS[1]  -f(0.0,dy,0.0)*Cx;
-  RHS[Nx] = RHS[Nx] -f(1.0,dy,0.0)*Cx;
+  RHS[1]  = RHS[1]  -h(0.0,dy,0.0)*Cx;
+  RHS[Nx] = RHS[Nx] -h(1.0,dy,0.0)*Cx;
 
   /*Ligne du milieux*/
   j = 1+Nx;
   for( i = 2; i<= M-1; i++ ){
     nloc(&k,&l,j,Nx);
-    RHS[j] = RHS[j] -f(0.0,k*dy,0.0)*Cx;
-    RHS[j+Nx-1] = RHS[j+Nx-1] -f(1.0,k*dy,0.0)*Cx;
+    RHS[j] = RHS[j] -h(0.0,k*dy,0.0)*Cx;
+    RHS[j+Nx-1] = RHS[j+Nx-1] -h(1.0,k*dy,0.0)*Cx;
     j = 1 + (i)*Nx;
   }
   /*ligne du haut*/
   nloc(&k,&l,N,Nx);
-  RHS[N-Nx+1] = RHS[N-Nx+1] -f(0.0,k*dy,0.0)*Cx;
-  RHS[N] = RHS[N] -f(1.0,k*dy,0.0)*Cx;
+  RHS[N-Nx+1] = RHS[N-Nx+1] -h(0.0,k*dy,0.0)*Cx;
+  RHS[N] = RHS[N] -h(1.0,k*dy,0.0)*Cx;
 }
 
 /* Produit matrice vecteur pour une matrice tridiagonale par bloc
@@ -247,20 +280,30 @@ void main( void )
   /* declaration des variables du probleme */
   double Lx,Ly,D;
   /* variables du solveur */
-  int meth, maxiter;
+  int meth, maxiter, param_cond;
   double eps;
   int i,j,k,M;
+
 
   /* lecture des variables dans le fichier param.dat */
   sprintf(FileName,"param.dat");
   Infile=fopen(FileName,"r");
   fscanf(Infile,"%d%d",&Nx,&Ny);
   fscanf(Infile,"%lf%lf%lf",&Lx,&Ly,&D);
-  fscanf(Infile,"%d%d%lf",&meth,&maxiter,&eps);
+  fscanf(Infile,"%d%d%d%lf",&param_cond,&meth,&maxiter,&eps);
   fclose(Infile);
+  if(param_cond <0 || param_cond >= 2)
+  {
+    fprintf(stderr, "Conditions aux bords: %d non supportées\n", param_cond );
+    exit(EXIT_FAILURE);
+  }
+  else{
+    cdt_choisie = param_cond;
+  }
 
   printf("Nx,Ny= %d\t%d\n",Nx,Ny); 
   printf("Lx,Ly,D= %lf\t%lf\t%lf\n",Lx,Ly,D);
+  printf("condition aux bords= %d\n", cdt_choisie);
   printf("choix de meth,maxiter,eps= %d\t%d\t%0.8f\n",meth,maxiter,eps);
  
   /* Calcul des termes de la matrice */
