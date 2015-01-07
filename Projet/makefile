@@ -1,2 +1,4 @@
+CC=mpicc
+
 all:
-	gcc -lm main.c -o main.out
+	$(CC) main.c -o main.out -lm

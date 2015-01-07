@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <mpi.h>
+#include "tools.h"
 
 int cdt_choisie= 1;
 
@@ -180,39 +182,77 @@ void matvec(double Aii,double Cx,double Cy,int Nx,int m,double *Uold,double *U){
 /* solveur de jacobi */    
 void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, int N, double *RHS, double *U, double *Uold){
   int i,j,M,l;
+  int myrank, nb_procs;
   double invAii;
-  double err;
+  double err, err_buf;
+  MPI_Status s1, s2;
+  MPI_Request r1, r2;
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
 
   invAii = 1.0/Aii;
   j = 0;
   M = N/Nx;
   err = 100.0;
 
+  int first_elt = (myrank * (M / nb_procs)) * Nx + 1;
+  int last_elt = ((myrank + 1) * (M / nb_procs)) * Nx;
+  if(myrank == nb_procs-1){
+    last_elt = N;
+  }
+
   while( (err > eps) && (j < maxiter) ){
-    for(l=1;l<=N;l++){
-      Uold[l]=U[l];}
+    //Communications
+    if(myrank != nb_procs - 1){
+      MPI_Isend(&U[last_elt - Nx + 1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r1);
+      //printf("Proc %d sends to %d : %d to %d\n", myrank, myrank+1, last_elt - Nx  + 1, last_elt);
+      MPI_Irecv(&U[last_elt+1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r2);
+      //printf("Proc %d recv from %d in %d to %d\n", myrank, myrank+1, last_elt+1, last_elt+Nx);
+    }
+    if(myrank != 0){
+      MPI_Isend(&U[first_elt], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r2);
+      //printf("Proc %d sends to %d : %d to %d\n", myrank, myrank-1, first_elt, first_elt+Nx - 1);
+      MPI_Irecv(&U[first_elt-Nx], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r1);
+      //printf("Proc %d recv from %d in %d to %d\n", myrank, myrank-1, first_elt-Nx, first_elt-1);
+    }
+
+    if(myrank != nb_procs - 1)
+      MPI_Wait(&r2, &s1);
+    if(myrank != 0)
+      MPI_Wait(&r1, &s2);
+    
+    for(l=MAX(first_elt-Nx,1);l<=MIN(last_elt+Nx,N);l++){
+      Uold[l]=U[l];
+    }
     matvec(0.0,Cx,Cy,Nx,M,Uold,U);
-    for(l=1;l<=N;l++){
+    for(l=first_elt;l<=last_elt;l++){
       U[l]=(RHS[l]-U[l])*invAii;}
         
       /*calcul de l erreur*/
     err = 0.0;
-    for(l=1;l<=N;l++){
+    for(l=first_elt;l<=last_elt;l++){
       Uold[l]=U[l]-Uold[l];
       err= err + sqrt(Uold[l]*Uold[l]);
     }
+    MPI_Allreduce(&err, &err_buf, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    err = err_buf;
     j++;
   }
-printf("fin jacobi, convergence en, %d, iterations, erreur=,%lf",j,err);
+
+  printf("fin jacobi, convergence en, %d, iterations, erreur=,%lf",j,err);
 }
 
 /* solveur du gradient conjugue */
 void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,double *RHS,double *U)
 {
+  int myrank, nb_procs;
   int l, i, M;
   double residu, drl, dwl, alpha, beta;
   double *r, *kappa, *d, *W;
-  
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
+
+
   l = 0;
   M = N/Nx;
   residu = 0.0;
@@ -284,6 +324,12 @@ void main( void )
   double eps;
   int i,j,k,M;
 
+  int myrank, nb_procs;
+    
+  MPI_Init(NULL,NULL);
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
+
 
   /* lecture des variables dans le fichier param.dat */
   sprintf(FileName,"param.dat");
@@ -295,6 +341,7 @@ void main( void )
   if(param_cond <0 || param_cond >= 2)
   {
     fprintf(stderr, "Conditions aux bords: %d non supportées\n", param_cond );
+    MPI_Finalize();
     exit(EXIT_FAILURE);
   }
   else{
@@ -342,7 +389,7 @@ void main( void )
     posy = j*dy;
     fprintf(Outfile,"%lf %lf %lf\n",posx,posy,U[i]);
   }
-
   fclose(Outfile);
+  MPI_Finalize();
 }
 
