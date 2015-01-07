@@ -143,14 +143,15 @@ void matvec(double Aii,double Cx,double Cy,int Nx,int Ny,double *Uold,double *U)
   int nb_procs;
   MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-  int first_elt = (myrank * (Ny/ nb_procs)) * Nx + 1;
-  int last_elt = ((myrank + 1) * (Ny / nb_procs)) * Nx;
-  int my_first_line = first_elt/Nx + 1;
-  int my_last_line = last_elt/Nx;
 
-  i = first_elt;
+  int fst_elt = (myrank * (Ny/ nb_procs)) * Nx + 1;
+  int lst_elt = ((myrank + 1) * (Ny / nb_procs)) * Nx;
+  int fst_line = fst_elt/Nx + 1;
+  int lst_line = lst_elt/Nx;
 
-  if(my_first_line == 1){
+  i = fst_elt;
+
+  if(fst_line == 1){
 /*Premier bloc*/
     U[1] = Aii*Uold[1] + Cx*Uold[2] + Cy*Uold[1+Nx];
     i = 1;
@@ -162,32 +163,32 @@ void matvec(double Aii,double Cx,double Cy,int Nx,int Ny,double *Uold,double *U)
     i = 1 + (Nx-1);
   }
 /*bloc general, il y a m-2 blocs generaux */
-  for( k = my_first_line; k<= MIN(Ny-1, my_last_line); k++){
-if(k!=1){ /* First line already done */
+  for( k = fst_line; k<= MIN(Ny-1, lst_line); k++){
+    if(k!=1){ /* First line already done */
 /*Premiere ligne*/
-    i = (k-1)*Nx+1;
-    U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cy*Uold[i-Nx] + Cy*Uold[i+Nx] ;
+      i = (k-1)*Nx+1;
+      U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cy*Uold[i-Nx] + Cy*Uold[i+Nx] ;
 /*ligne generale*/
-    for( j = 1;j<= Nx-2;j++){
-      i = i+1;
-      U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cx*Uold[i+1] + Cy*Uold[i+Nx] + Cy*Uold[i-Nx];
-    }
+      for( j = 1;j<= Nx-2;j++){
+        i = i+1;
+        U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cx*Uold[i+1] + Cy*Uold[i+Nx] + Cy*Uold[i-Nx];
+      }
 /*Derniere ligne*/
-    i = i + 1;
-    U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cy*Uold[i-Nx] + Cy*Uold[i+Nx];
-  }
-}
-i = i+1;
-if(my_last_line == Ny){
-/*Dernier bloc*/
-  U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cy*Uold[i-Nx];
-  for( j = 1;j<= Nx-2;j++){
-    i = i+1;
-    U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cx*Uold[i-1] + Cy*Uold[i-Nx];
+      i = i + 1;
+      U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cy*Uold[i-Nx] + Cy*Uold[i+Nx];
+    }
   }
   i = i+1;
-  U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cy*Uold[i-Nx];
-}
+  if(lst_line == Ny){
+/*Dernier bloc*/
+    U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cy*Uold[i-Nx];
+    for( j = 1;j<= Nx-2;j++){
+      i = i+1;
+      U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cx*Uold[i-1] + Cy*Uold[i-Nx];
+    }
+    i = i+1;
+    U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cy*Uold[i-Nx];
+  }
 }
 
 
