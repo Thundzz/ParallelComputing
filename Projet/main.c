@@ -251,8 +251,7 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, i
       err= err + Uold[l]*Uold[l];
     }
     err = sqrt(err);
-    if(j %10 == 0)
-      printf("rank:%d -> %g\n", myrank, err);
+
     MPI_Allreduce(&err, &err_buf, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     err = err_buf;
     j++;
@@ -328,8 +327,8 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
 
 void main( void )
 {
-  FILE *Infile, *Outfile;
-  char FileName[40], Outname[40];
+  FILE *Infile, *Outfile, *Timefile;
+  char FileName[40], Outname[40], Timename[40];
 
   /* declaration des variables de discretisation du probleme */
   int Nx,Ny,N;
@@ -389,7 +388,10 @@ void main( void )
   /* Remplissage du second membre de l equation */
     RightHandSide(N, Nx, M, dx, dy, Cx, Cy, RHS);
 
+    double start;
+    double end;
 
+   start = MPI_Wtime();
     /* Choix du solveur pour la resolution du systeme */
    if ( meth == 1 ){     
       jacobi(maxiter,eps,Aii,Cx,Cy,Nx,N,RHS,U,Uold);}
@@ -397,10 +399,14 @@ void main( void )
       GC(maxiter,eps,Aii,Cx,Cy,Nx,N,RHS,U);} 
    else
      printf("Choix de methode non supporte");
+   end = MPI_Wtime() - start;
 
+   MPI_Allreduce(MPI_IN_PLACE, &end, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 /* ecriture de la solution dans un fichier */ 
+  sprintf(Timename,"time%d", nb_procs);
   sprintf(Outname,"sol%d", myrank);
   Outfile = fopen(Outname,"w");
+  Timefile = fopen(Timename,"w");
 
   int first_elt = (myrank * (Ny / nb_procs)) * Nx + 1;
   int last_elt = ((myrank + 1) * (Ny / nb_procs)) * Nx;
@@ -414,6 +420,12 @@ void main( void )
     posy = j*dy;
     fprintf(Outfile,"%lf %lf %lf\n",posx,posy,U[i]);
   }
+
+  if(myrank == 0)
+  { 
+    fprintf(Timefile,"%g\n",end);
+  }
+  fclose(Timefile);
   fclose(Outfile);
   MPI_Finalize();
 }
