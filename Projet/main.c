@@ -137,46 +137,58 @@ void RightHandSide(int N, int Nx, int M, double dx, double dy, double Cx, double
 !          .   .   .
 !              Cx Aii
 */
-void matvec(double Aii,double Cx,double Cy,int Nx,int m,double *Uold,double *U){
+void matvec(double Aii,double Cx,double Cy,int Nx,int Ny,double *Uold,double *U){
   int     i,j,k;
+  int myrank;
+  int nb_procs;
+  MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+  int first_elt = (myrank * (Ny/ nb_procs)) * Nx + 1;
+  int last_elt = ((myrank + 1) * (Ny / nb_procs)) * Nx;
+  int my_first_line = first_elt/Nx + 1;
+  int my_last_line = last_elt/Nx;
 
-  /*Premier bloc*/
-  U[1] = Aii*Uold[1] + Cx*Uold[2] + Cy*Uold[1+Nx];
-  i = 1;
-  for( j = 1;j<= Nx-2;j++ ){
-    i = 1+j;
-    U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cx*Uold[i+1] + Cy*Uold[i+Nx];
-  } 
-  U[1+(Nx-1)] = Aii*Uold[1+(Nx-1)] + Cx*Uold[1+(Nx-1)-1] + Cy*Uold[1+(Nx-1)+Nx];
+  i = first_elt;
 
-  i = 1 + (Nx-1);
-
-  /*bloc general, il y a m-2 blocs generaux */
-  for( k = 1; k<=(m-2); k++){
-    /*Premiere ligne*/
-    i = i+1;
+  if(my_first_line == 1){
+/*Premier bloc*/
+    U[1] = Aii*Uold[1] + Cx*Uold[2] + Cy*Uold[1+Nx];
+    i = 1;
+    for( j = 1;j<= Nx-2;j++ ){
+      i = 1+j;
+      U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cx*Uold[i+1] + Cy*Uold[i+Nx];
+    }
+    U[1+(Nx-1)] = Aii*Uold[1+(Nx-1)] + Cx*Uold[1+(Nx-1)-1] + Cy*Uold[1+(Nx-1)+Nx];
+    i = 1 + (Nx-1);
+  }
+/*bloc general, il y a m-2 blocs generaux */
+  for( k = my_first_line; k<= MIN(Ny-1, my_last_line); k++){
+if(k!=1){ /* First line already done */
+/*Premiere ligne*/
+    i = (k-1)*Nx+1;
     U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cy*Uold[i-Nx] + Cy*Uold[i+Nx] ;
-    /*ligne generale*/
+/*ligne generale*/
     for( j = 1;j<= Nx-2;j++){
       i = i+1;
       U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cx*Uold[i+1] + Cy*Uold[i+Nx] + Cy*Uold[i-Nx];
-      }
-    /*Derniere ligne*/
-     i = i + 1;	
-     U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cy*Uold[i-Nx] + Cy*Uold[i+Nx];
+    }
+/*Derniere ligne*/
+    i = i + 1;
+    U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cy*Uold[i-Nx] + Cy*Uold[i+Nx];
   }
-  i = i+1;
-  
- /*Dernier bloc*/
+}
+i = i+1;
+if(my_last_line == Ny){
+/*Dernier bloc*/
   U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cy*Uold[i-Nx];
   for( j = 1;j<= Nx-2;j++){
     i = i+1;
     U[i] = Aii*Uold[i] + Cx*Uold[i+1] + Cx*Uold[i-1] + Cy*Uold[i-Nx];
-    }
+  }
   i = i+1;
   U[i] = Aii*Uold[i] + Cx*Uold[i-1] + Cy*Uold[i-Nx];
-  return;
-  }
+}
+}
 
 
 /* solveur de jacobi */    
@@ -195,25 +207,22 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, i
   M = N/Nx;
   err = 100.0;
 
-  int first_elt = (myrank * (M / nb_procs)) * Nx + 1;
-  int last_elt = ((myrank + 1) * (M / nb_procs)) * Nx;
+  int fst = (myrank * (M / nb_procs)) * Nx + 1;
+  int lst = ((myrank + 1) * (M / nb_procs)) * Nx;
+
   if(myrank == nb_procs-1){
-    last_elt = N;
+    lst = N;
   }
 
   while( (err > eps) && (j < maxiter) ){
     //Communications
     if(myrank != nb_procs - 1){
-      MPI_Isend(&U[last_elt - Nx + 1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r1);
-      //printf("Proc %d sends to %d : %d to %d\n", myrank, myrank+1, last_elt - Nx  + 1, last_elt);
-      MPI_Irecv(&U[last_elt+1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r2);
-      //printf("Proc %d recv from %d in %d to %d\n", myrank, myrank+1, last_elt+1, last_elt+Nx);
+      MPI_Isend(&U[lst - Nx + 1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r1);
+      MPI_Irecv(&U[lst+1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r2);
     }
     if(myrank != 0){
-      MPI_Isend(&U[first_elt], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r2);
-      //printf("Proc %d sends to %d : %d to %d\n", myrank, myrank-1, first_elt, first_elt+Nx - 1);
-      MPI_Irecv(&U[first_elt-Nx], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r1);
-      //printf("Proc %d recv from %d in %d to %d\n", myrank, myrank-1, first_elt-Nx, first_elt-1);
+      MPI_Isend(&U[fst], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r2);
+      MPI_Irecv(&U[fst-Nx], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r1);
     }
 
     if(myrank != nb_procs - 1)
@@ -221,25 +230,34 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, i
     if(myrank != 0)
       MPI_Wait(&r1, &s2);
     
-    for(l=MAX(first_elt-Nx,1);l<=MIN(last_elt+Nx,N);l++){
-      Uold[l]=U[l];
+    for(l = 1;l<=N;l++){
+      if( l>=MAX(fst-Nx, 1)&&  l<=MIN(lst+Nx,N))
+        Uold[l]=U[l];
+      else
+      {
+        Uold[l]=0;
+        U[l] = 0;
+      }
     }
     matvec(0.0,Cx,Cy,Nx,M,Uold,U);
-    for(l=first_elt;l<=last_elt;l++){
+    for(l=fst;l<=lst;l++){
       U[l]=(RHS[l]-U[l])*invAii;}
         
       /*calcul de l erreur*/
     err = 0.0;
-    for(l=first_elt;l<=last_elt;l++){
+    for(l=fst;l<=lst;l++){
       Uold[l]=U[l]-Uold[l];
-      err= err + sqrt(Uold[l]*Uold[l]);
+      err= err + Uold[l]*Uold[l];
     }
+    err = sqrt(err);
+    if(j %10 == 0)
+      printf("rank:%d -> %g\n", myrank, err);
     MPI_Allreduce(&err, &err_buf, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     err = err_buf;
     j++;
   }
 
-  printf("fin jacobi, convergence en, %d, iterations, erreur=,%lf",j,err);
+  printf("fin jacobi, convergence en, %d, iterations, erreur=,%lf\n",j,err);
 }
 
 /* solveur du gradient conjugue */
@@ -380,10 +398,16 @@ void main( void )
      printf("Choix de methode non supporte");
 
 /* ecriture de la solution dans un fichier */ 
-  sprintf(Outname,"sol");
+  sprintf(Outname,"sol%d", myrank);
   Outfile = fopen(Outname,"w");
 
-  for( i=1;i<=N;i++ ){
+  int first_elt = (myrank * (Ny / nb_procs)) * Nx + 1;
+  int last_elt = ((myrank + 1) * (Ny / nb_procs)) * Nx;
+  if(myrank == nb_procs-1){
+    last_elt = N;
+  }
+
+  for( i=first_elt;i<=last_elt;i++ ){
     nloc(&j,&k,i,Nx);
     posx = k*dx;
     posy = j*dy;
@@ -392,4 +416,3 @@ void main( void )
   fclose(Outfile);
   MPI_Finalize();
 }
-
