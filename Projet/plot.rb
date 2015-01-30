@@ -35,6 +35,6 @@ end
 
 plotfile = "gnuplot2.cmd" 
 
-#squash_files ARGV[0].to_i
-#print_plotfile plotfile
-speedup ARGV[0].to_i
+squash_files ARGV[0].to_i
+print_plotfile plotfile
+#speedup ARGV[0].to_i

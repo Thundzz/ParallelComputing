@@ -1,7 +1,13 @@
 CC=mpicc
+EXEC= main.out
 
-all:
-	$(CC) main.c -o main.out -lm
+all: $(EXEC) 
+
+%.out: %.o
+	$(CC) $< -o $@ -lm
+
+%.o: %.c
+	$(CC) -c $< -lm
 
 clean: 
-	rm *.out sol* time* speedup
+	rm -f *.out sol* time* speedup

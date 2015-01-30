@@ -41,8 +41,6 @@ double func_one(double posx, double posy, double t)
   return 1;
 }
 
-
-
 void nloc(int *i, int *j, int n, int Nx)
 {
   int q,r;
@@ -214,6 +212,7 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, i
   if(myrank == nb_procs-1){
     lst = N;
   }
+  fprintf(stderr, "myrank %d: %d -%d\n", myrank, fst, lst );
 
   while( (err > eps) && (j < maxiter) ){
     //Communications
@@ -231,14 +230,8 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, i
     if(myrank != 0)
       MPI_Wait(&r1, &s2);
     
-    for(l = 1;l<=N;l++){
-      if( l>=MAX(fst-Nx, 1)&&  l<=MIN(lst+Nx,N))
+    for(l =MAX(fst-Nx, 1) ;l<= MIN(lst+Nx,N);l++){
         Uold[l]=U[l];
-      else
-      {
-        Uold[l]=0;
-        U[l] = 0;
-      }
     }
     matvec(0.0,Cx,Cy,Nx,M,Uold,U);
     for(l=fst;l<=lst;l++){
@@ -269,7 +262,8 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
   double *r, *kappa, *d, *W;
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
   MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
-
+  MPI_Status s1, s2;
+  MPI_Request r1, r2;
 
   l = 0;
   M = N/Nx;
@@ -279,46 +273,74 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
   d     = (double*) calloc(N+1,sizeof(double));
   W     = (double*) calloc(N+1,sizeof(double));
 
+  int fst = (myrank * (M / nb_procs)) * Nx + 1;
+  int lst = ((myrank + 1) * (M / nb_procs)) * Nx;
+
+  if(myrank == nb_procs-1){
+    lst = N;
+  }
+
+  int deb = MAX(fst-Nx, 1);
+  int fin = MIN(lst+Nx,N);
+
   /*initialisation Gradient Conjugue*/
-  for ( i=1;i<=N;i++ ){
-    kappa[i] = U[i];}
+  for ( i=fst;i<lst;i++ ){
+    kappa[i] = U[i];
+  }
   matvec(Aii,Cx,Cy,Nx,M,kappa,r);
   
-  for(i=1;i<=N;i++){
+  for(i=fst;i<=lst;i++){
     r[i]     = r[i] - RHS[i];
     residu = residu + r[i]*r[i];
     d[i]=r[i];
-   }    
-  
+   }
+  MPI_Allreduce(MPI_IN_PLACE, &residu, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   /* boucle du Gradient conjugue */
    while( (l<=maxiter) && (residu >= eps)){    
+     if(myrank != nb_procs - 1){
+       MPI_Isend(&d[lst - Nx + 1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r1);
+       MPI_Irecv(&d[lst+1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r2);
+     }
+     if(myrank != 0){
+       MPI_Isend(&d[fst], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r2);
+       MPI_Irecv(&d[fst-Nx], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r1);
+     }
+     if(myrank != nb_procs - 1)
+       MPI_Wait(&r2, &s1);
+     if(myrank != 0)
+       MPI_Wait(&r1, &s2);
+    // W = A*dk
      matvec(Aii,Cx,Cy,Nx,M,d,W);
      drl = 0.0;
      dwl = 0.0;
-     for( i=1; i<=N; i++ ){
-       drl = drl + d[i]*r[i];
-       dwl = dwl + d[i]*W[i];
-       }
-      
+     for( i=fst; i<=lst; i++ ){
+       drl += r[i]*r[i];
+       dwl += d[i]*W[i];
+     }
+     MPI_Allreduce(MPI_IN_PLACE, &dwl, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+     MPI_Allreduce(MPI_IN_PLACE, &drl, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
      alpha = drl/dwl;
-     for(i=1; i<=N; i++ ){
+     for(i=fst; i<=lst; i++ ){
        kappa[i] = kappa[i] - alpha*d[i];
-       r[i] = r[i] - alpha*W[i];}
+       r[i] = r[i] - alpha*W[i];
+     }
      beta = 0.0;
-     for(i=1;i<=N;i++){
-       beta = beta + (r[i]*r[i]);}
+     for(i=fst;i<=lst;i++){
+       beta = beta + (r[i]*r[i]);
+     }
+     MPI_Allreduce(MPI_IN_PLACE, &beta, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
      beta = beta / residu;
      residu = 0.0;
-     for( i = 1; i<= N; i++){
+     for( i = fst; i<= lst; i++){
        d[i] = r[i] + beta*d[i];   
        residu    = residu + r[i]*r[i];  
      }
+     MPI_Allreduce(MPI_IN_PLACE, &residu, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
      l++;
    }
-   for(i=1;i<=N;i++){
-     U[i] = kappa[i]; /* copie de la solution dans U */
+   for(i=fst;i<=lst;i++){
+      U[i] = kappa[i]; /* copie de la solution dans U */
    }
-
    printf("le Gradient Conjugue a converge en, %d iteration, residu= %0.12f\n",l,residu);
 
 }/*fin du Gradient Conjugue*/
