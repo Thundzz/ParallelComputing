@@ -284,7 +284,7 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
   int fin = MIN(lst+Nx,N);
 
   /*initialisation Gradient Conjugue*/
-  for ( i=fst;i<lst;i++ ){
+  for ( i=deb;i<fin;i++ ){
     kappa[i] = U[i];
   }
   matvec(Aii,Cx,Cy,Nx,M,kappa,r);
