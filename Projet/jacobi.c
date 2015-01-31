@@ -6,7 +6,8 @@
 #include <mpi.h>
 
 
-void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, int N, double *RHS, double *U, double *Uold){
+void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, 
+            int Nx, int N, double *RHS, double *U, double *Uold){
   int j,M,l;
   int myrank, nb_procs;
   double invAii;
@@ -20,19 +21,21 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, i
   j = 0;
   M = N/Nx;
   err = 100.0;
-
+  
   int fst = (myrank * (M / nb_procs)) * Nx + 1;
   int lst = ((myrank + 1) * (M / nb_procs)) * Nx;
-
   if(myrank == nb_procs-1){
     lst = N;
   }
 
   while( (err > eps) && (j < maxiter) ){
-    //Communications
+    // Communications pour que chacun
+    // récupère les morceaux de U qui lui manquent.
     if(myrank != nb_procs - 1){
-      MPI_Isend(&U[lst - Nx + 1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r1);
-      MPI_Irecv(&U[lst+1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r2);
+      MPI_Isend(&U[lst - Nx + 1], Nx, MPI_DOUBLE,
+                myrank+1, 99, MPI_COMM_WORLD, &r1);
+      MPI_Irecv(&U[lst+1], Nx, MPI_DOUBLE,
+                myrank+1, 99, MPI_COMM_WORLD, &r2);
     }
     if(myrank != 0){
       MPI_Isend(&U[fst], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r2);
@@ -51,7 +54,7 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, i
     for(l=fst;l<=lst;l++){
       U[l]=(RHS[l]-U[l])*invAii;}
         
-      /*calcul de l erreur*/
+    // calcul de l'erreur
     err = 0.0;
     for(l=fst;l<=lst;l++){
       Uold[l]=U[l]-Uold[l];
@@ -63,5 +66,9 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, i
     err = err_buf;
     j++;
   }
-  printf("fin jacobi, convergence en, %d, iterations, erreur=,%lf\n",j,err);
+  MPI_Barrier(MPI_COMM_WORLD);
+  if(myrank == 0)
+  {
+    printf("Fin jacobi, convergence en %d iterations erreur=%lf\n",j,err);    
+  }
 }

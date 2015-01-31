@@ -54,44 +54,48 @@ int main( void )
   else{
     cdt_choisie = param_cond;
   }
-
-  printf("Nx,Ny= %d\t%d\n",Nx,Ny); 
-  printf("Lx,Ly,D= %lf\t%lf\t%lf\n",Lx,Ly,D);
-  printf("condition aux bords= %d\n", cdt_choisie);
-  printf("choix de meth,maxiter,eps= %d\t%d\t%0.8f\n",meth,maxiter,eps);
- 
+  // Si je suis le premier processus, j'affiche les données
+  // scannée sur la sortie standard.
+  if(myrank == 0)
+  {
+    printf("Nx,Ny= %d\t%d\n",Nx,Ny); 
+    printf("Lx,Ly,D= %lf\t%lf\t%lf\n",Lx,Ly,D);
+    printf("condition aux bords= %d\n", cdt_choisie);
+    printf("choix de meth,maxiter,eps= %d\t%d\t%0.8f\n",meth,maxiter,eps);
+  }
   /* Calcul des termes de la matrice */
   dx  = Lx/(1.0 + Nx);
   dy  = Ly/(1.0 + Ny);
-  Aii = 2.0*D/(dx*dx)+ 2.0/(dy*dy); /* Terme diagonal de la matrice */
+  Aii = 2.0*D/(dx*dx)+ 2.0/(dy*dy);  // Terme diagonal de la matrice 
   Cx  = -1.0*D/(dx*dx);
   Cy  = -1.0*D/(dy*dy);
   N = Nx*Ny;
 
   /* decalration des pointeurs du probleme */
-  U    = (double*) calloc(N+1,sizeof(double)); /* +1 car je commence a 1 pour compatibilite fortran */
+  /* +1 car je commence a 1 pour compatibilite fortran */
+  U    = (double*) calloc(N+1,sizeof(double)); 
   Uold = (double*) calloc(N+1,sizeof(double));
   RHS  = (double*) calloc(N+1,sizeof(double));
 
 
   /* Remplissage du second membre de l equation */
-    RightHandSide(N, Nx, Ny, dx, dy, Cx, Cy, RHS);
+  RightHandSide(N, Nx, Ny, dx, dy, Cx, Cy, RHS);
 
-    double start;
-    double end;
+  double start;
+  double end;
 
-   start = MPI_Wtime();
-    /* Choix du solveur pour la resolution du systeme */
-   if ( meth == 1 ){     
-      jacobi(maxiter,eps,Aii,Cx,Cy,Nx,N,RHS,U,Uold);}
-   else if ( meth == 2 ){
-      GC(maxiter,eps,Aii,Cx,Cy,Nx,N,RHS,U);} 
-   else
-     printf("Choix de methode non supporte");
-   end = MPI_Wtime() - start;
+  start = MPI_Wtime();
+  /* Choix du solveur pour la resolution du systeme */
+  if ( meth == 1 ){     
+    jacobi(maxiter,eps,Aii,Cx,Cy,Nx,N,RHS,U,Uold);}
+  else if ( meth == 2 ){
+    GC(maxiter,eps,Aii,Cx,Cy,Nx,N,RHS,U);} 
+  else
+   printf("Choix de methode non supporte");
+ end = MPI_Wtime() - start;
 
-   MPI_Allreduce(MPI_IN_PLACE, &end, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-/* ecriture de la solution dans un fichier */ 
+ MPI_Allreduce(MPI_IN_PLACE, &end, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+ /* ecriture de la solution dans un fichier */ 
   sprintf(Timename,"time%d", nb_procs);
   sprintf(Outname,"sol%d", myrank);
   Outfile = fopen(Outname,"w");
