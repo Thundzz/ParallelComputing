@@ -274,7 +274,7 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
   MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
   MPI_Status s1, s2;
-  MPI_Request r1, r2;
+  MPI_Request r1, r2, r3, r4;
 
   l = 0;
   M = N/Nx;
@@ -312,13 +312,19 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
        MPI_Irecv(&d[lst+1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r2);
      }
      if(myrank != 0){
-       MPI_Isend(&d[fst], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r2);
-       MPI_Irecv(&d[fst-Nx], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r1);
+       MPI_Isend(&d[fst], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r3);
+       MPI_Irecv(&d[fst-Nx], Nx, MPI_DOUBLE, myrank-1, 99, MPI_COMM_WORLD, &r4);
      }
      if(myrank != nb_procs - 1)
+     {
+       MPI_Wait(&r1, &s1);
        MPI_Wait(&r2, &s1);
+     }
      if(myrank != 0)
-       MPI_Wait(&r1, &s2);
+     {
+       MPI_Wait(&r3, &s2);
+       MPI_Wait(&r4, &s2);
+     }
     // W = A*dk
      matvec(Aii,Cx,Cy,Nx,M,d,W);
      drl = 0.0;
