@@ -3,9 +3,12 @@
 #include <stdlib.h>
 #include <math.h>
 #include <mpi.h>
+#include <assert.h>
 #include "tools.h"
 
 int cdt_choisie= 1;
+
+#define UNUSED(x) (void)(x)
 
 typedef struct conditions_aux_bords{
   double (*f)(double, double, double);
@@ -15,6 +18,7 @@ typedef struct conditions_aux_bords{
 
 double f1( double posx, double posy, double t)
 {
+  UNUSED(t);
   double function;
   function = sin(posx) + cos(posy);
   return(function);
@@ -22,11 +26,15 @@ double f1( double posx, double posy, double t)
 
 double f2 ( double posx, double posy, double t)
 {
+  UNUSED(t);
   return 2*(posy - posy*posy + posx - posx*posx);
 }
 
 double func_zero(double posx, double posy, double t)
 {
+  UNUSED(t);
+  UNUSED(posx);
+  UNUSED(posy); 
   return 0;
 }
 
@@ -38,6 +46,9 @@ cdt_aux_bords cdt[] =
 
 double func_one(double posx, double posy, double t)
 {
+  UNUSED(t);
+  UNUSED(posx);
+  UNUSED(posy);
   return 1;
 }
 
@@ -68,8 +79,8 @@ void RightHandSide(int N, int Nx, int M, double dx, double dy, double Cx, double
   int i,j,l,k;
   double posx,posy;
 
-  M = N/Nx ; /* # de lignes */
-
+  //M = N/Nx ; /* # de lignes */
+  assert(N/Nx == M);
   double (*f)(double, double, double) = cdt[cdt_choisie].f;
   double (*g)(double, double, double) = cdt[cdt_choisie].g;
   double (*h)(double, double, double) = cdt[cdt_choisie].h;
@@ -192,7 +203,7 @@ void matvec(double Aii,double Cx,double Cy,int Nx,int Ny,double *Uold,double *U)
 
 /* solveur de jacobi */    
 void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy, int Nx, int N, double *RHS, double *U, double *Uold){
-  int i,j,M,l;
+  int j,M,l;
   int myrank, nb_procs;
   double invAii;
   double err, err_buf;
@@ -346,7 +357,7 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
 
 
 
-void main( void )
+int main( void )
 {
   FILE *Infile, *Outfile, *Timefile;
   char FileName[40], Outname[40], Timename[40];
@@ -361,7 +372,7 @@ void main( void )
   /* variables du solveur */
   int meth, maxiter, param_cond;
   double eps;
-  int i,j,k,M;
+  int i,j,k;
 
   int myrank, nb_procs;
     
@@ -407,7 +418,7 @@ void main( void )
 
 
   /* Remplissage du second membre de l equation */
-    RightHandSide(N, Nx, M, dx, dy, Cx, Cy, RHS);
+    RightHandSide(N, Nx, Ny, dx, dy, Cx, Cy, RHS);
 
     double start;
     double end;
@@ -449,4 +460,5 @@ void main( void )
   fclose(Timefile);
   fclose(Outfile);
   MPI_Finalize();
+  return 0;
 }
