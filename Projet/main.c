@@ -275,7 +275,6 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
 
   int fst = (myrank * (M / nb_procs)) * Nx + 1;
   int lst = ((myrank + 1) * (M / nb_procs)) * Nx;
-
   if(myrank == nb_procs-1){
     lst = N;
   }
@@ -296,7 +295,7 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
    }
   MPI_Allreduce(MPI_IN_PLACE, &residu, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
   /* boucle du Gradient conjugue */
-   while( (l<=maxiter) && (residu >= eps)){    
+   while( (l<=maxiter) && (sqrt(residu) >= eps)){    
      if(myrank != nb_procs - 1){
        MPI_Isend(&d[lst - Nx + 1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r1);
        MPI_Irecv(&d[lst+1], Nx, MPI_DOUBLE, myrank+1, 99, MPI_COMM_WORLD, &r2);
@@ -314,7 +313,7 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,int Nx,int N,dou
      drl = 0.0;
      dwl = 0.0;
      for( i=fst; i<=lst; i++ ){
-       drl += r[i]*r[i];
+       drl += d[i]*r[i];
        dwl += d[i]*W[i];
      }
      MPI_Allreduce(MPI_IN_PLACE, &dwl, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
