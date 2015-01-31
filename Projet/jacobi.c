@@ -22,11 +22,13 @@ void jacobi(int maxiter, double eps, double Aii, double Cx, double Cy,
   M = N/Nx;
   err = 100.0;
   
-  int fst = (myrank * (M / nb_procs)) * Nx + 1;
-  int lst = ((myrank + 1) * (M / nb_procs)) * Nx;
-  if(myrank == nb_procs-1){
-    lst = N;
-  }
+  int fstline = myrank*M/nb_procs+1;
+  int lstline = (myrank+1)*M/nb_procs;
+  if(myrank == nb_procs-1)
+    lstline = M;
+
+  int fst = (fstline-1) * Nx + 1;
+  int lst = lstline * Nx;
 
   while( (err > eps) && (j < maxiter) ){
     // Communications pour que chacun

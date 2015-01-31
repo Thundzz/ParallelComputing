@@ -92,11 +92,12 @@ void matvec(double Aii,double Cx,double Cy,int Nx,int Ny,double *Uold,double *U)
   MPI_Comm_size(MPI_COMM_WORLD, &nb_procs);
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
-  int fst_elt = (myrank * (Ny/ nb_procs)) * Nx + 1;
-  int lst_elt = ((myrank + 1) * (Ny / nb_procs)) * Nx;
-  int fst_line = fst_elt/Nx + 1;
-  int lst_line = lst_elt/Nx;
+  int fst_line = myrank*Ny/nb_procs+1;
+  int lst_line = (myrank+1)*Ny/nb_procs;
+  if(myrank == nb_procs-1)
+    lst_line = Ny;
 
+  int fst_elt = (fst_line-1) * Nx + 1;
   i = fst_elt;
 
   if(fst_line == 1){

@@ -29,11 +29,13 @@ void GC(int maxiter, double eps, double Aii,double Cx,double Cy,
   d     = (double*) calloc(N+1,sizeof(double));
   W     = (double*) calloc(N+1,sizeof(double));
 
-  int fst = (myrank * (M / nb_procs)) * Nx + 1;
-  int lst = ((myrank + 1) * (M / nb_procs)) * Nx;
-  if(myrank == nb_procs-1){
-    lst = N;
-  }
+  int fstline = myrank*M/nb_procs+1;
+  int lstline = (myrank+1)*M/nb_procs;
+  if(myrank == nb_procs-1)
+    lstline = M;
+
+  int fst = (fstline-1) * Nx + 1;
+  int lst = lstline * Nx;
 
   int deb = MAX(fst-Nx, 1);
   int fin = MIN(lst+Nx,N);
