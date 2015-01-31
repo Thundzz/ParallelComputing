@@ -19,7 +19,7 @@ Utilisation
 				* To use Jacobi, set this value as 0. 
 				*  To use Conjugate Gradient, set this value as 1
 			* `max_iter` indicates the maximum number of iterations
-			* `eps` indicates the convergence requirement
+			* `eps` indicates the error value that is used to determine the convergence
 
 * Launch 
 ```
